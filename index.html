@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuration Settings</title>
+    <title>Appcloner Maker</title>
     <style>
         :root {
   --primary-blue: #1a73e8;
@@ -249,6 +249,25 @@ body {
   color: #666;
 }
 
+.setting-group {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+.setting-group h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: var(--primary-blue);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.setting-group .setting {
+  margin-left: 15px;
+}
 .slider-container {
   display: flex;
   align-items: center;
@@ -272,7 +291,58 @@ input[type="range"] {
   border-radius: 2px;
   appearance: none;
 }
+.array-container {
+    margin-bottom: 15px;
+}
 
+.array-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.array-item input {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.object-item {
+    flex-wrap: wrap;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.object-field {
+    display: flex;
+    flex-direction: column;
+    margin-right: 15px;
+    margin-bottom: 10px;
+}
+
+.object-field label {
+    margin-bottom: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+.add-item, .add-complex-item, .remove-item {
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.remove-item {
+    background-color: #d32f2f;
+}
+
+.add-item:hover, .add-complex-item:hover, .remove-item:hover {
+    opacity: 0.8;
+}
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
@@ -291,7 +361,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 </head>
 <body>
 <div class="container">
-  <h1 class="header">Configuration Settings</h1>
+  <h1 class="header">Appcloner Settings</h1>
   
   <div id="loading">Loading configuration...</div>
   <div id="error-message" class="error-message"></div>
@@ -305,6 +375,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 <script>
 // Constants for API access
+
 const BIN_ID = '671c3f06acd3cb34a89d11fc';
 const API_KEY = '$2a$10$3sLFuJxhvWme/vUI9565Xul5nSWc3yC2czy0whE.nOMw6Tj8Xnb0C';
 let jsonConfig;
@@ -367,7 +438,7 @@ function createCategorySection(category, settings) {
     content.className = 'category-content';
 
     Object.entries(settings).forEach(([key, value]) => {
-        content.appendChild(createSettingElement(category, key, value));
+        content.appendChild(createSettingElement(key, value));
     });
 
     section.appendChild(header);
@@ -375,31 +446,58 @@ function createCategorySection(category, settings) {
     return section;
 }
 
-function createSettingElement(category, key, value) {
+function createSettingElement(key, value) {
     const setting = document.createElement('div');
-    const fullKey = `${category}.${key}`;
-    
+
     if (Array.isArray(value)) {
-        setting.className = 'array-field';
-        const formattedLabel = formatLabel(key);
-        setting.innerHTML = `
-            <label class="setting-label">
-                ${formattedLabel}
-                <span style="font-size: 12px; color: #666; margin-left: 8px;">
-                    (${value.length} options)
-                </span>
-            </label>
-            <select data-key="${fullKey}">
-                ${value.map(option => `
-                    <option value="${option}">${option}</option>
-                `).join('')}
-            </select>
-        `;
+        // Determine if the array contains only primitive values (simple arrays with options)
+        const isPrimitiveArray = value.every(item => typeof item !== 'object' || item === null);
+
+        if (isPrimitiveArray && value.length > 0) {
+            // Arrays with options - do not touch
+            setting.className = 'array-field';
+            const formattedLabel = formatLabel(key);
+            setting.innerHTML = `
+                <label class="setting-label">
+                    ${formattedLabel}
+                    <span style="font-size: 12px; color: #666; margin-left: 8px;">
+                        (${value.length} options)
+                    </span>
+                </label>
+                <select data-key="${key}">
+                    ${value.map(option => `
+                        <option value="${option}">${option}</option>
+                    `).join('')}
+                </select>
+            `;
+        } else {
+            // Complex arrays
+            setting.className = 'setting';
+            setting.innerHTML = `
+                <label class="setting-label">${formatLabel(key)}</label>
+                <div class="array-container" data-key="${key}">
+                    <!-- Items will be appended here -->
+                </div>
+                <button class="add-item" type="button">Add Item</button>
+            `;
+            const arrayContainer = setting.querySelector('.array-container');
+            value.forEach((item, index) => {
+                const itemElement = createArrayItemElement(key, item, index);
+                arrayContainer.appendChild(itemElement);
+            });
+            // Event listener for 'Add Item' button
+            setting.querySelector('.add-item').addEventListener('click', () => {
+                const newItem = (typeof value[0] === 'object' && value[0] !== null) ? {} : '';
+                const newItemElement = createArrayItemElement(key, newItem, arrayContainer.children.length);
+                arrayContainer.appendChild(newItemElement);
+            });
+        }
     } else if (typeof value === 'boolean') {
+        // Booleans - do not touch
         setting.className = 'setting';
         setting.innerHTML = `
             <label class="setting-checkbox">
-                <input type="checkbox" data-key="${fullKey}" ${value ? 'checked' : ''}>
+                <input type="checkbox" data-key="${key}" ${value ? 'checked' : ''}>
                 <span class="checkmark"></span>
                 <span class="toggle-label">${formatLabel(key)}</span>
                 <span class="toggle-status">${value ? 'Enabled' : 'Disabled'}</span>
@@ -409,7 +507,7 @@ function createSettingElement(category, key, value) {
               (key.includes('Battery') || key.includes('battery'))) {
         setting.className = 'setting';
         let min = 0, max = 100, step = 1;
-        
+
         if (key.includes('Temp')) {
             min = -20;
             max = 80;
@@ -417,12 +515,12 @@ function createSettingElement(category, key, value) {
             min = 0;
             max = 100;
         }
-        
+
         setting.innerHTML = `
             <label class="setting-label">${formatLabel(key)}</label>
             <div class="slider-container">
                 <input type="range" 
-                    data-key="${fullKey}" 
+                    data-key="${key}" 
                     value="${value}"
                     min="${min}"
                     max="${max}"
@@ -430,7 +528,7 @@ function createSettingElement(category, key, value) {
                 <span class="slider-value">${value}</span>
             </div>
         `;
-        
+
         setTimeout(() => {
             const slider = setting.querySelector('input[type="range"]');
             const valueDisplay = setting.querySelector('.slider-value');
@@ -442,17 +540,123 @@ function createSettingElement(category, key, value) {
         setting.className = 'setting';
         setting.innerHTML = `
             <label class="setting-label">${formatLabel(key)}</label>
-            <input type="number" data-key="${fullKey}" value="${value}">
+            <input type="number" data-key="${key}" value="${value}">
         `;
+    } else if (typeof value === 'object' && value !== null) {
+        // Improved object display
+        setting.className = 'setting';
+        setting.innerHTML = `
+            <label class="setting-label">${formatLabel(key)}</label>
+            <div class="object-item" data-key="${key}">
+                <!-- Object fields will be appended here -->
+            </div>
+            <button class="add-item" type="button">Add Field</button>
+        `;
+
+        const objectItem = setting.querySelector('.object-item');
+        Object.entries(value).forEach(([objKey, objValue]) => {
+            const field = createObjectFieldElement(`${key}[${objKey}]`, objKey, objValue);
+            objectItem.appendChild(field);
+        });
+
+        // Event listener for 'Add Field' button
+        setting.querySelector('.add-item').addEventListener('click', () => {
+            const fieldKey = prompt('Enter field name:');
+            if (fieldKey) {
+                const field = createObjectFieldElement(`${key}[${fieldKey}]`, fieldKey, '');
+                objectItem.appendChild(field);
+            }
+        });
     } else {
         setting.className = 'setting';
         setting.innerHTML = `
             <label class="setting-label">${formatLabel(key)}</label>
-            <input type="text" data-key="${fullKey}" value="${value}">
+            <input type="text" data-key="${key}" value="${value}">
         `;
     }
-    
+
     return setting;
+}
+
+function createArrayItemElement(key, item, index) {
+    const arrayItem = document.createElement('div');
+    arrayItem.className = 'array-item';
+
+    const removeButton = document.createElement('button');
+    removeButton.className = 'remove-item';
+    removeButton.textContent = 'Remove';
+
+    removeButton.addEventListener('click', () => {
+        arrayItem.remove();
+    });
+
+    if (typeof item === 'object' && item !== null) {
+        // Item is an object
+        const objectItem = document.createElement('div');
+        objectItem.className = 'object-item';
+
+        Object.entries(item).forEach(([objKey, objValue]) => {
+            const field = createObjectFieldElement(`${key}[${index}][${objKey}]`, objKey, objValue);
+            objectItem.appendChild(field);
+        });
+
+        // Add 'Add Field' button for object items
+        const addFieldButton = document.createElement('button');
+        addFieldButton.className = 'add-item';
+        addFieldButton.textContent = 'Add Field';
+
+        addFieldButton.addEventListener('click', () => {
+            const fieldKey = prompt('Enter field name:');
+            if (fieldKey) {
+                const field = createObjectFieldElement(`${key}[${index}][${fieldKey}]`, fieldKey, '');
+                objectItem.appendChild(field);
+            }
+        });
+
+        arrayItem.appendChild(objectItem);
+        arrayItem.appendChild(addFieldButton);
+    } else {
+        // Item is a primitive value
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.dataset.key = `${key}[${index}]`;
+        input.value = item;
+
+        arrayItem.appendChild(input);
+    }
+
+    arrayItem.appendChild(removeButton);
+
+    return arrayItem;
+}
+
+function createObjectFieldElement(fullKey, objKey, objValue) {
+    const objectField = document.createElement('div');
+    objectField.className = 'object-field';
+    objectField.innerHTML = `
+        <label>Field Name</label>
+        <input type="text" class="field-key" value="${objKey}">
+        <label>Value</label>
+        <input type="text" class="field-value" data-key="${fullKey}" value="${objValue}">
+        <button class="remove-field" type="button">Remove Field</button>
+    `;
+
+    // Event listener for field key change
+    const fieldKeyInput = objectField.querySelector('.field-key');
+    const fieldValueInput = objectField.querySelector('.field-value');
+
+    fieldKeyInput.addEventListener('input', () => {
+        const parentKey = fullKey.substring(0, fullKey.lastIndexOf('[')); // Remove [objKey]
+        const newKey = fieldKeyInput.value;
+        fieldValueInput.dataset.key = `${parentKey}[${newKey}]`;
+    });
+
+    // Event listener for remove field
+    objectField.querySelector('.remove-field').addEventListener('click', () => {
+        objectField.remove();
+    });
+
+    return objectField;
 }
 
 function formatLabel(key) {
@@ -467,6 +671,48 @@ function initializeEventListeners() {
             content.classList.toggle('active');
             chevron.classList.toggle('active');
         });
+    });
+}
+
+function getUpdatedConfig(originalConfig) {
+    const updatedConfig = {};
+    document.querySelectorAll('[data-key]').forEach(element => {
+        const keyPath = element.dataset.key;
+        let value;
+
+        if (element.type === 'checkbox') {
+            value = element.checked;
+        } else if (element.type === 'number' || element.type === 'range') {
+            value = parseFloat(element.value);
+        } else {
+            value = element.value;
+        }
+
+        setNestedValue(updatedConfig, keyPath, value, originalConfig);
+    });
+
+    return updatedConfig;
+}
+
+function setNestedValue(obj, path, value, originalConfig) {
+    const keys = path.replace(/\]/g, '').split(/\[/);
+    let current = obj;
+    let originalCurrent = originalConfig;
+    keys.forEach((key, index) => {
+        if (index === keys.length -1) {
+            current[key] = value;
+        } else {
+            if (!current[key]) {
+                // Use the structure from the original config if available
+                if (originalCurrent && originalCurrent[key] !== undefined) {
+                    current[key] = Array.isArray(originalCurrent[key]) ? [] : {};
+                } else {
+                    current[key] = {};
+                }
+            }
+            current = current[key];
+            originalCurrent = originalCurrent ? originalCurrent[key] : undefined;
+        }
     });
 }
 
@@ -486,26 +732,6 @@ function encryptAES(plainText, key) {
     return encrypted.toString();
 }
 
-function getUpdatedConfig() {
-    const updatedConfig = {};
-    document.querySelectorAll('[data-key]').forEach(element => {
-        const [category, key] = element.dataset.key.split('.');
-        if (!updatedConfig[category]) {
-            updatedConfig[category] = {};
-        }
-        let value;
-        if (element.type === 'checkbox') {
-            value = element.checked;
-        } else if (element.type === 'number' || element.type === 'range') {
-            value = parseFloat(element.value);
-        } else {
-            value = element.value;
-        }
-        updatedConfig[category][key] = value;
-    });
-    return updatedConfig;
-}
-
 function saveConfig() {
     const packageName = prompt("Please enter the package name to encrypt the configuration:");
     if (!packageName) {
@@ -513,9 +739,8 @@ function saveConfig() {
         return;
     }
 
-    const updatedConfig = getUpdatedConfig();
-    const flattenedConfig = flattenJsonConfig(updatedConfig);
-    const jsonString = JSON.stringify(flattenedConfig, null, 2);
+    const updatedConfig = getUpdatedConfig(jsonConfig);
+    const jsonString = JSON.stringify(updatedConfig, null, 2);
     const key = generateKeyFromPackageName(packageName);
     const encryptedContent = encryptAES(jsonString, key);
     const blob = new Blob([encryptedContent], { type: 'application/json' });
@@ -527,23 +752,6 @@ function saveConfig() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-}
-
-function flattenJsonConfig(config) {
-    const flattened = {};
-    
-    function flatten(obj) {
-        for (const [key, value] of Object.entries(obj)) {
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                flatten(value);
-            } else if (typeof value === 'boolean' || Array.isArray(value) || typeof value === 'string' || typeof value === 'number') {
-                flattened[key] = value;
-            }
-        }
-    }
-    
-    flatten(config);
-    return flattened;
 }
 
 async function loadConfig() {
